@@ -1,49 +1,68 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Froggy Friend 3D</title>
+    <title>Froggy Eats 3D</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { margin: 0; background: #87CEEB; overflow: hidden; font-family: 'Comic Sans MS', sans-serif; }
-        #ui { position: absolute; bottom: 20px; width: 100%; text-align: center; z-index: 10; }
-        button { padding: 15px 30px; font-size: 20px; border-radius: 30px; border: none; background: #4CAF50; color: white; cursor: pointer; box-shadow: 0 4px #2e7d32; }
-        button:active { transform: translateY(2px); box-shadow: 0 2px #2e7d32; }
-        #subtitle { background: rgba(255,255,255,0.8); padding: 10px; border-radius: 10px; margin-bottom: 10px; display: none; }
+        body { margin: 0; background: linear-gradient(#87CEEB, #e1f5fe); overflow: hidden; font-family: 'Comic Sans MS', sans-serif; }
+        #ui { position: absolute; bottom: 30px; width: 100%; text-align: center; z-index: 10; }
+        button { padding: 20px 40px; font-size: 24px; border-radius: 50px; border: none; background: #ff5722; color: white; cursor: pointer; box-shadow: 0 6px #bf360c; transition: 0.2s; }
+        button:active { transform: translateY(4px); box-shadow: 0 2px #bf360c; }
+        #subtitle { background: white; padding: 15px; border-radius: 20px; margin-bottom: 15px; display: inline-block; border: 3px solid #4CAF50; min-width: 200px; }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <div id="subtitle">Listening...</div>
-        <button id="micBtn">🎤 Tap to Talk to Froggy</button>
+        <div id="subtitle">Tap the button to talk! 🎤</div><br>
+        <button id="micBtn">START TALKING</button>
     </div>
 
-    <!-- Load 3D Engine -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <script>
-        // --- 1. SET UP THE 3D WORLD ---
+        // --- 1. THE 3D FROG DESIGN ---
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // Create a Simple 3D Frog (Body and Eyes)
         const frogGroup = new THREE.Group();
-        const body = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 32), new THREE.MeshPhongMaterial({color: 0x44aa88}));
+
+        // Body
+        const body = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 32), new THREE.MeshPhongMaterial({color: 0x4CAF50}));
         frogGroup.add(body);
+
+        // Eyes (Big Frog Eyes)
+        const eyeSocketG = new THREE.SphereGeometry(0.35, 16, 16);
+        const eyeG = new THREE.SphereGeometry(0.15, 16, 16);
+        const whiteM = new THREE.MeshPhongMaterial({color: 0xffffff});
+        const blackM = new THREE.MeshPhongMaterial({color: 0x000000});
+
+        const leftSocket = new THREE.Mesh(eyeSocketG, new THREE.MeshPhongMaterial({color: 0x4CAF50}));
+        leftSocket.position.set(0.6, 0.8, 0.4);
+        const rightSocket = new THREE.Mesh(eyeSocketG, new THREE.MeshPhongMaterial({color: 0x4CAF50}));
+        rightSocket.position.set(-0.6, 0.8, 0.4);
         
-        const eyeG = new THREE.SphereGeometry(0.2, 16, 16);
-        const eyeM = new THREE.MeshPhongMaterial({color: 0xffffff});
-        const leftEye = new THREE.Mesh(eyeG, eyeM); leftEye.position.set(0.5, 0.8, 0.5);
-        const rightEye = new THREE.Mesh(eyeG, eyeM); rightEye.position.set(-0.5, 0.8, 0.5);
-        frogGroup.add(leftEye, rightEye);
+        const leftEye = new THREE.Mesh(eyeG, blackM); leftEye.position.set(0.6, 0.9, 0.6);
+        const rightEye = new THREE.Mesh(eyeG, blackM); rightEye.position.set(-0.6, 0.9, 0.6);
+
+        frogGroup.add(leftSocket, rightSocket, leftEye, rightEye);
+
+        // Mouth (A red semi-circle inside)
+        const mouthG = new THREE.TorusGeometry(0.4, 0.05, 16, 100, Math.PI);
+        const mouthM = new THREE.MeshBasicMaterial({color: 0x330000});
+        const mouth = new THREE.Mesh(mouthG, mouthM);
+        mouth.position.set(0, 0.2, 0.85);
+        mouth.rotation.x = Math.PI;
+        frogGroup.add(mouth);
 
         scene.add(frogGroup);
-        const light = new THREE.DirectionalLight(0xffffff, 1); light.position.set(1, 1, 2); scene.add(light);
-        scene.add(new THREE.AmbientLight(0x404040));
-        camera.position.z = 3;
+
+        const light = new THREE.DirectionalLight(0xffffff, 1.2); light.position.set(1, 5, 5); scene.add(light);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        camera.position.z = 3.5;
 
         // --- 2. VOICE & LOGIC ---
         const micBtn = document.getElementById('micBtn');
@@ -51,54 +70,57 @@
         const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
         const synth = window.speechSynthesis;
 
-        recognition.lang = 'en-US';
-        recognition.continuous = false;
-
         function frogSpeak(text) {
             const utterance = new SpeechSynthesisUtterance(text);
-            utterance.pitch = 1.5; // High pitched frog voice
-            utterance.rate = 1.0;
-            // Animate mouth/body while talking
-            const talkInterval = setInterval(() => {
-                frogGroup.scale.y = 1 + (Math.random() * 0.1);
-            }, 100);
+            utterance.pitch = 1.8; // Very cute frog pitch
+            utterance.rate = 1.1;
+
+            utterance.onstart = () => {
+                // Mouth animation loop
+                this.talkInterval = setInterval(() => {
+                    mouth.scale.y = Math.random() * 2;
+                    frogGroup.position.y = Math.random() * 0.05;
+                }, 100);
+            };
+
             utterance.onend = () => {
-                clearInterval(talkInterval);
-                frogGroup.scale.y = 1;
+                clearInterval(this.talkInterval);
+                mouth.scale.y = 1;
+                frogGroup.position.y = 0;
             };
             synth.speak(utterance);
         }
 
         micBtn.onclick = () => {
             recognition.start();
-            subtitle.style.display = "inline-block";
-            subtitle.innerText = "Listening...";
+            subtitle.innerText = "Froggy is listening...";
+            micBtn.innerText = "LISTENING...";
         };
 
         recognition.onresult = (event) => {
             const speech = event.results[0][0].transcript.toLowerCase();
-            subtitle.innerText = "You said: " + speech;
+            micBtn.innerText = "START TALKING";
             
-            if (speech.includes("hello") || speech.includes("hi")) {
-                frogSpeak("Hi friend! I am so hungry. What are we having for breakfast?");
-            } else if (speech.includes("pancakes") || speech.includes("eggs") || speech.includes("cereal")) {
-                frogSpeak("Ooh, " + speech + " is my favorite! Take a big bite first, then tell me if you did it!");
-            } else if (speech.includes("i did") || speech.includes("yes")) {
-                // Eating Animation
-                frogSpeak("Nom nom nom! That was delicious. Here is a joke: What do frogs eat? French flies!");
-                frogGroup.position.y = 0.5; // Little jump
-                setTimeout(() => frogGroup.position.y = 0, 300);
+            if (speech.includes("hi") || speech.includes("hello") || speech.includes("name")) {
+                frogSpeak("Hi there! I am your breakfast buddy! I'm so hungry, what are we eating today?");
+            } else if (speech.match(/pancake|waffle|egg|cereal|toast|fruit|apple|banana|oatmeal|yogurt/)) {
+                frogSpeak("Ooh, " + speech + " sounds yummy! I'm going to eat some too! Ready? Take a big bite! Tell me when you are done!");
+            } else if (speech.includes("done") || speech.includes("did it") || speech.includes("finished") || speech.includes("yes")) {
+                frogSpeak("Nom nom nom! Great job! You are getting so strong! Why did the frog take the bus? Because his car got toad!");
+                // Jump for joy
+                frogGroup.position.y = 1;
+                setTimeout(() => frogGroup.position.y = 0, 400);
             } else {
-                frogSpeak("I'm listening! Tell me more about your food.");
+                frogSpeak("Ribbit! That sounds interesting. Take another bite for me, okay?");
             }
         };
 
         // --- 3. ANIMATION LOOP ---
         function animate() {
             requestAnimationFrame(animate);
-            // Idle breathing
-            frogGroup.rotation.y += 0.01;
-            frogGroup.scale.x = 1 + Math.sin(Date.now() * 0.002) * 0.02;
+            // Idle subtle movement
+            frogGroup.rotation.y = Math.sin(Date.now() * 0.001) * 0.2;
+            frogGroup.scale.x = 1 + Math.sin(Date.now() * 0.003) * 0.01;
             renderer.render(scene, camera);
         }
         animate();
